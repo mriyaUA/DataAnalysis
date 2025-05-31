@@ -1,0 +1,80 @@
+
+import pandas as pd
+import seaborn as sns
+import matplotlib.pyplot as plt
+import streamlit as st
+
+# Довідник для областей
+obl_dict = {
+    1: "Черкаська", 2: "Чернігівська", 3: "Чернівецька", 4: "АР Крим",
+    5: "Дніпропетровська", 6: "Донецька", 7: "Івано-Франківська", 8: "Харківська",
+    9: "Херсонська", 10: "Хмельницька", 11: "Київська", 12: "м. Київ", 13: "Кіровоградська",
+    14: "Луганська", 15: "Львівська", 16: "Миколаївська", 17: "Одеська", 18: "Полтавська",
+    19: "Рівненська", 20: "м. Севастополь", 21: "Сумська", 22: "Тернопільська",
+    23: "Закарпатська", 24: "Вінницька", 25: "Волинська", 26: "Запорізька", 27: "Житомирська"
+}
+
+# Читання даних
+@st.cache_data
+def load_data():
+    df = pd.read_csv("data/combined_df.csv")
+    df = df.rename(columns={"year": "Рік", "week": "Тиждень", "vci": "VCI", "tci": "TCI", "vhi": "VHI", "oblast": "Область"})
+    return df
+
+df = load_data()
+
+# Сайдбар фільтри
+st.sidebar.title("Фільтри")
+
+index_option = st.sidebar.selectbox("Оберіть індекс", ["VCI", "TCI", "VHI"])
+oblast_name = st.sidebar.selectbox("Оберіть область", list(obl_dict.values()))
+years = st.sidebar.slider("Роки", 1982, 2024, (2000, 2020))
+weeks = st.sidebar.slider("Тижні", 1, 52, (1, 52))
+sort_mode = st.sidebar.radio("Сортування", ["Ні", "За зростанням", "За спаданням"])
+def reset_all_filters():
+    for key_item, value_item in default_val.items():
+        st.session_state[key_item] = value_item
+        # Для слайдерів може знадобитися оновити і їхні контрольні ключі, якщо вони використовуються окремо
+        # але оскільки ми читаємо value з session_state.slider_week/year, оновлення session_state має бути достатньо.
+        st.success("Фільтри скинуто до початкових значень!")
+
+
+    if st.button("Скинути всі фільтри", type="primary", help="Натисніть, щоб повернути всі налаштування до початкових."):
+        reset_all_filters()
+        st.experimental_rerun()
+
+# Фільтрація
+obl_code = [k for k, v in obl_dict.items() if v == oblast_name][0]
+filtered = df[(df["Рік"] >= years[0]) & (df["Рік"] <= years[1]) &
+              (df["Тиждень"] >= weeks[0]) & (df["Тиждень"] <= weeks[1]) &
+              (df["Область"] == obl_code)][["Рік", "Тиждень", index_option]]
+
+# Сортування
+if sort_mode == "За зростанням":
+    filtered = filtered.sort_values(by=index_option)
+elif sort_mode == "За спаданням":
+    filtered = filtered.sort_values(by=index_option, ascending=False)
+
+# Основна частина
+st.title("Лабораторна №3 — Аналіз VHI / TCI / VCI")
+
+tab1, tab2, tab3 = st.tabs(["Таблиця", "Графік", "Порівняння"])
+
+with tab1:
+    st.dataframe(filtered)
+
+with tab2:
+    fig, ax = plt.subplots(figsize=(10, 4))
+    sns.lineplot(data=filtered, x="Рік", y=index_option, ax=ax)
+    ax.set_title(f"{index_option} по роках для {oblast_name}")
+    st.pyplot(fig)
+
+with tab3:
+    avg_by_obl = df[(df["Рік"] >= years[0]) & (df["Рік"] <= years[1]) &
+                    (df["Тиждень"] >= weeks[0]) & (df["Тиждень"] <= weeks[1])]
+    avg_plot = avg_by_obl.groupby("Область")[index_option].mean().reset_index()
+    fig2, ax2 = plt.subplots(figsize=(12, 5))
+    sns.barplot(data=avg_plot, x="Область", y=index_option, ax=ax2)
+    ax2.set_xticks(range(1, 28))
+    ax2.set_xticklabels([obl_dict[k] for k in range(1, 28)], rotation=90)
+    st.pyplot(fig2)
