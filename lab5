@@ -1,0 +1,127 @@
+import matplotlib
+matplotlib.use('Qt5Agg')  
+import matplotlib.pyplot as plt
+from matplotlib.widgets import Slider, Button, CheckButtons
+import numpy as np
+from scipy.signal import butter, filtfilt
+
+
+init_amplitude = 1.0
+init_frequency = 5.0
+init_phase = 0.0
+init_noise_mean = 0.0
+init_noise_std = 0.2
+init_filter_low = 1.0
+init_filter_high = 10.0
+
+
+t = np.linspace(0, 1, 1000)
+fs = 1000  
+
+noise = np.random.normal(init_noise_mean, init_noise_std, size=t.shape)
+
+def generate_signal(amplitude, frequency, phase):
+    return amplitude * np.sin(2 * np.pi * frequency * t + phase)
+
+def apply_filter(signal, lowcut, highcut):
+    b, a = butter(N=4, Wn=[lowcut, highcut], btype='band', fs=fs)
+    return filtfilt(b, a, signal)
+
+fig, ax = plt.subplots(figsize=(10, 6))
+plt.subplots_adjust(left=0.1, bottom=0.4)
+
+signal = generate_signal(init_amplitude, init_frequency, init_phase)
+noisy_signal = signal + noise
+filtered_signal = apply_filter(noisy_signal, init_filter_low, init_filter_high)
+
+line_signal, = ax.plot(t, signal, label='Чиста гармоніка', color='blue')
+line_noisy, = ax.plot(t, noisy_signal, label='Гармоніка з шумом', color='orange')
+line_filtered, = ax.plot(t, filtered_signal, label='Відфільтрований сигнал', color='green')
+
+ax.set_title('Гармоніка з шумом та фільтрацією')
+ax.set_xlabel('Час [с]')
+ax.set_ylabel('Амплітуда')
+ax.legend(loc='upper right')
+ax.grid(True)
+
+ax_amp = plt.axes([0.1, 0.3, 0.8, 0.03])
+slider_amp = Slider(ax_amp, 'Амплітуда', 0.1, 5.0, valinit=init_amplitude)
+
+ax_freq = plt.axes([0.1, 0.25, 0.8, 0.03])
+slider_freq = Slider(ax_freq, 'Частота [Гц]', 1.0, 20.0, valinit=init_frequency)
+
+ax_phase = plt.axes([0.1, 0.2, 0.8, 0.03])
+slider_phase = Slider(ax_phase, 'Фаза [рад]', 0.0, 2*np.pi, valinit=init_phase)
+
+ax_noise_mean = plt.axes([0.1, 0.15, 0.8, 0.03])
+slider_noise_mean = Slider(ax_noise_mean, 'Середнє шуму', -1.0, 1.0, valinit=init_noise_mean)
+
+ax_noise_std = plt.axes([0.1, 0.1, 0.8, 0.03])
+slider_noise_std = Slider(ax_noise_std, 'Стандартне відхилення шуму', 0.0, 1.0, valinit=init_noise_std)
+
+ax_filter_low = plt.axes([0.1, 0.05, 0.35, 0.03])
+slider_filter_low = Slider(ax_filter_low, 'Нижня межа фільтра [Гц]', 0.1, fs/2 - 1, valinit=init_filter_low)
+
+ax_filter_high = plt.axes([0.55, 0.05, 0.35, 0.03])
+slider_filter_high = Slider(ax_filter_high, 'Верхня межа фільтра [Гц]', 0.1, fs/2 - 1, valinit=init_filter_high)
+
+ax_check = plt.axes([0.01, 0.5, 0.1, 0.15])
+check = CheckButtons(ax_check, ['Показати шум', 'Показати фільтр'], [True, True])
+
+ax_reset = plt.axes([0.8, 0.9, 0.1, 0.05])
+button_reset = Button(ax_reset, 'Скинути')
+
+
+def update(val):
+    global noise
+    amplitude = slider_amp.val
+    frequency = slider_freq.val
+    phase = slider_phase.val
+    noise_mean = slider_noise_mean.val
+    noise_std = slider_noise_std.val
+    lowcut = slider_filter_low.val
+    highcut = slider_filter_high.val
+
+    signal = generate_signal(amplitude, frequency, phase)
+
+    if val in [slider_noise_mean, slider_noise_std]:
+        noise = np.random.normal(noise_mean, noise_std, size=t.shape)
+
+    noisy_signal = signal + noise
+    filtered_signal = apply_filter(noisy_signal, lowcut, highcut)
+
+    line_signal.set_ydata(signal)
+    line_noisy.set_ydata(noisy_signal)
+    line_filtered.set_ydata(filtered_signal)
+
+    visibility = check.get_status()
+    line_noisy.set_visible(visibility[0])
+    line_filtered.set_visible(visibility[1])
+
+    fig.canvas.draw_idle()
+
+slider_amp.on_changed(update)
+slider_freq.on_changed(update)
+slider_phase.on_changed(update)
+slider_noise_mean.on_changed(update)
+slider_noise_std.on_changed(update)
+slider_filter_low.on_changed(update)
+slider_filter_high.on_changed(update)
+
+def check_update(label):
+    update(None)
+
+check.on_clicked(check_update)
+
+def reset(event):
+    slider_amp.reset()
+    slider_freq.reset()
+    slider_phase.reset()
+    slider_noise_mean.reset()
+    slider_noise_std.reset()
+    slider_filter_low.reset()
+    slider_filter_high.reset()
+
+button_reset.on_clicked(reset)
+
+plt.show()
