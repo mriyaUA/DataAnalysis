@@ -1,0 +1,20 @@
+# Віртуальне середовище
+.venv
+
+# Python кеші
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+
+# IDE
+.idea/
+
+# Jupyter
+.ipynb_checkpoints/
+
+# Дані
+df
+
+lab4/*
+!lab4/lab4*
